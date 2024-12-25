@@ -1,16 +1,19 @@
 package com.callstack.repack
 
+import android.util.Log
 import com.facebook.react.TurboReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 
-class ScriptManagerPackage : TurboReactPackage() {
+class ScriptManagerPackage1(appId: String) : TurboReactPackage() {
+    init {
+        Log.d("ScriptManagerPackage", "init appId:$appId")
+    }
+
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
         return if (name == ScriptManagerModule.NAME) {
-            ScriptManagerModule(reactContext)
-        } else if (name == ScriptManagerModule1.NAME) {
             ScriptManagerModule1(reactContext)
         } else {
             null
