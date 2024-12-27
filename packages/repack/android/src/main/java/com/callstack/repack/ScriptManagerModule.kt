@@ -1,30 +1,45 @@
 package com.callstack.repack
 
-import android.os.Handler
+import android.util.Log
 import com.facebook.react.bridge.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.security.PublicKey
 
-class ScriptManagerModule(reactContext: ReactApplicationContext) : ScriptManagerSpec(reactContext) {
+class ScriptManagerModule(
+    reactContext: ReactApplicationContext,
+    publicKey: PublicKey?,
+    coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ScriptManagerSpec(reactContext) {
     private val nativeLoader = NativeScriptLoader(reactApplicationContext)
-    private val remoteLoader = RemoteScriptLoader(reactApplicationContext, nativeLoader)
+    private val remoteLoader =
+        RemoteScriptLoader(reactApplicationContext, nativeLoader, publicKey = publicKey)
     private val fileSystemLoader = FileSystemScriptLoader(reactApplicationContext, nativeLoader)
+
+    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e("ScriptManagerModule", "CoroutineExceptionHandler ${throwable.message}", throwable)
+    }
+    private val job = SupervisorJob()
+    private val coroutineScope =
+        CoroutineScope(job + coroutineExceptionHandler + coroutineDispatcher)
 
     override fun getName(): String {
         return NAME
     }
 
     private fun runInBackground(fn: () -> Unit) {
-        val handler = Handler()
-        val runnable = Runnable {
+        coroutineScope.launch {
             fn()
         }
-        handler.postDelayed(runnable, 0)
-
     }
 
     @ReactMethod
     override fun loadScript(scriptId: String, configMap: ReadableMap, promise: Promise) {
         val config = ScriptConfig.fromReadableMap(scriptId, configMap)
-
         runInBackground {
             // Currently, `loadScript` supports either `RemoteScriptLoader` or `FileSystemScriptLoader`
             // but not both at the same time - it will likely change in the future.
@@ -43,8 +58,8 @@ class ScriptManagerModule(reactContext: ReactApplicationContext) : ScriptManager
 
                 else -> {
                     promise.reject(
-                            ScriptLoadingError.UnsupportedScheme.code,
-                            "Scheme in URL: '${config.url}' is not supported"
+                        ScriptLoadingError.UnsupportedScheme.code,
+                        "Scheme in URL: '${config.url}' is not supported"
                     )
                 }
             }
@@ -67,8 +82,8 @@ class ScriptManagerModule(reactContext: ReactApplicationContext) : ScriptManager
 
                 else -> {
                     promise.reject(
-                            ScriptLoadingError.UnsupportedScheme.code,
-                            "Scheme in URL: '${config.url}' is not supported"
+                        ScriptLoadingError.UnsupportedScheme.code,
+                        "Scheme in URL: '${config.url}' is not supported"
                     )
                 }
             }
@@ -91,8 +106,8 @@ class ScriptManagerModule(reactContext: ReactApplicationContext) : ScriptManager
                     promise.resolve(null)
                 } catch (error: Exception) {
                     promise.reject(
-                            ScriptLoadingError.ScriptInvalidationFailure.code,
-                            "Cannot invalidate some of the scripts"
+                        ScriptLoadingError.ScriptInvalidationFailure.code,
+                        "Cannot invalidate some of the scripts"
                     )
                 }
             }

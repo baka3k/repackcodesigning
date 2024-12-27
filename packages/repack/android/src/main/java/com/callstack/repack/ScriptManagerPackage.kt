@@ -5,13 +5,21 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import java.security.PublicKey
 
-class ScriptManagerPackage : TurboReactPackage() {
+class ScriptManagerPackage(
+    private val publicKey: PublicKey? = null,
+    private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : TurboReactPackage() {
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
         return if (name == ScriptManagerModule.NAME) {
-            ScriptManagerModule(reactContext)
-        } else if (name == ScriptManagerModule1.NAME) {
-            ScriptManagerModule1(reactContext)
+            ScriptManagerModule(
+                reactContext,
+                publicKey = publicKey,
+                coroutineDispatcher = coroutineDispatcher
+            )
         } else {
             null
         }

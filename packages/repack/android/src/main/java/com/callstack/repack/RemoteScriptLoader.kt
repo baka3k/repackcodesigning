@@ -11,9 +11,14 @@ import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.security.PublicKey
 import java.util.concurrent.TimeUnit
 
-class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoader: NativeScriptLoader) {
+class RemoteScriptLoader(
+    val reactContext: ReactContext,
+    private val nativeLoader: NativeScriptLoader,
+    private val publicKey: PublicKey?
+) {
     private val scriptsDirName = "scripts"
     private val client = OkHttpClient()
 
@@ -29,15 +34,19 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
         return clientPerRequestBuilder.build()
     }
 
-    private fun downloadAndCache(config: ScriptConfig, onSuccess: () -> Unit, onError: (code: String, message: String) -> Unit) {
+    private fun downloadAndCache(
+        config: ScriptConfig,
+        onSuccess: () -> Unit,
+        onError: (code: String, message: String) -> Unit
+    ) {
         val path = getScriptFilePath(config.uniqueId)
         val file = File(reactContext.filesDir, path)
 
         val callback = object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 onError(
-                        ScriptLoadingError.NetworkFailure.code,
-                        e.message ?: e.toString()
+                    ScriptLoadingError.NetworkFailure.code,
+                    e.message ?: e.toString()
                 )
             }
 
@@ -56,7 +65,7 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
                         } ?: Pair(null, null)
 
                         if (config.verifyScriptSignature == "strict" || (config.verifyScriptSignature == "lax" && token != null)) {
-                            CodeSigningUtils.verifyBundle(reactContext, token, bundle)
+                            CodeSigningUtils.verifyBundle(reactContext, token, bundle, publicKey)
                         }
 
                         file.createNewFile()
@@ -68,14 +77,14 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
                         onSuccess()
                     } catch (error: Exception) {
                         onError(
-                                ScriptLoadingError.ScriptCachingFailure.code,
-                                error.message ?: error.toString()
+                            ScriptLoadingError.ScriptCachingFailure.code,
+                            error.message ?: error.toString()
                         )
                     }
                 } else {
                     onError(
-                            ScriptLoadingError.RequestFailure.code,
-                            "Request should have returned with 200 HTTP status, but instead it received ${response.code}"
+                        ScriptLoadingError.RequestFailure.code,
+                        "Request should have returned with 200 HTTP status, but instead it received ${response.code}"
                     )
                 }
             }
@@ -83,8 +92,8 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
 
         val clientPerRequest = createClientPerRequest(config)
         var request = Request.Builder()
-                .url(config.url)
-                .headers(config.headers)
+            .url(config.url)
+            .headers(config.headers)
 
 
         if (config.method == "POST" && config.body != null) {
@@ -101,7 +110,7 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
             if (!file.exists()) {
                 throw Exception("Script file does not exist: $file")
             }
-            
+
             val code = FileInputStream(file).use { it.readBytes() }
             if (code.isEmpty()) {
                 throw Exception("Script file exists but could not be read: $file")
@@ -110,15 +119,18 @@ class RemoteScriptLoader(val reactContext: ReactContext, private val nativeLoade
             nativeLoader.evaluate(code, config.sourceUrl, promise)
         } catch (error: Exception) {
             promise.reject(
-                    ScriptLoadingError.ScriptEvalFailure.code,
-                    error.message ?: error.toString()
+                ScriptLoadingError.ScriptEvalFailure.code,
+                error.message ?: error.toString()
             )
         }
     }
 
 
     fun prefetch(config: ScriptConfig, promise: Promise) {
-        downloadAndCache(config, { promise.resolve(null) }, { code, message -> promise.reject(code, message) })
+        downloadAndCache(
+            config,
+            { promise.resolve(null) },
+            { code, message -> promise.reject(code, message) })
     }
 
     fun load(config: ScriptConfig, promise: Promise) {
