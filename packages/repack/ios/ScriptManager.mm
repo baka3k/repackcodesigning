@@ -262,7 +262,9 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(unstable_evaluateScript
               if ([config.verifyScriptSignature isEqualToString:@"strict"] ||
                   ([config.verifyScriptSignature isEqualToString:@"lax"] && token != nil)) {
                 NSError *codeSigningError = nil;
-                [CodeSigningUtils verifyBundleWithToken:token fileContent:bundle error:&codeSigningError publicKey:&];
+                  NSString *publicKey = nil;
+                  
+                [CodeSigningUtils verifyBundleWithToken:token fileContent:bundle publicKey:publicKey error:&codeSigningError];
                 if (codeSigningError != nil) {
                   callback(codeSigningError);
                   return;
