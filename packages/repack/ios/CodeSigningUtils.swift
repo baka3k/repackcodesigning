@@ -80,16 +80,20 @@ public class CodeSigningUtils: NSObject {
     }
     
     @objc
-    public static func verifyBundle(token: String?, fileContent: NSData?) throws {
+    public static func verifyBundle(token: String?, fileContent: NSData?, publicKey:String?) throws {
         guard let token = token else {
             throw CodeSigningError.tokenNotFound
         }
-        
-        guard let publicKey = getPublicKey() else {
+        let resolvedPublicKey: String
+        if let providedPublicKey = publicKey {
+            resolvedPublicKey = providedPublicKey
+        } else if let defaultPublicKey = getPublicKey() {
+            resolvedPublicKey = defaultPublicKey
+        } else {
             throw CodeSigningError.publicKeyNotFound
         }
         
-        let jwt = try decodeAndVerifyToken(token: token, publicKey: publicKey)
+        let jwt = try decodeAndVerifyToken(token: token, publicKey: resolvedPublicKey)
         guard let contentHash = jwt["hash"].string else {
             throw CodeSigningError.tokenInvalid
         }
